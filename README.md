@@ -1,3 +1,1 @@
-# defendthetower.io
-
-An experimental browser game
+# Server-Client-Users
