@@ -7,17 +7,18 @@ var LoginResponse = require("./classes/loginresponse.js");
 var Session = require("./classes/session.js");
 var User = require("./classes/user.js");
 var Task = require("./classes/task.js");
+var AssignEventResponse = require("./classes/assigneventresponse.js");
 
 var userFile = 'users.json';
 
-const wss = new WebSocket.Server({ port: 8080 });
+const wss = new WebSocket.Server({ port: 7308 });
 
 var sessions = [];
-
-var tasks = [new Task("code", "Finish Website"), new Task("mechanical", "Build Drivetrain")];
+var tasks = [new Task("code", 0, "Finish Website", -1, true, false), new Task("mechanical", 1, "Build Drivetrain", -1, true, false), new Task("cad", 2, "Design Shooter", -1, true, false)];
 
 wss.on('connection', function connection(ws, req) {
 
+  var ip = req.connection.remoteAddress;
   ws.on('message', function incoming(message) {
 
     var request = JSON.parse(message);
@@ -25,7 +26,7 @@ wss.on('connection', function connection(ws, req) {
     if (request.type === "loginrequest") {
       getUserData()
         .then(function(data) {
-          ws.send(respondToLogin(request, data, req.connection.remoteAddress));
+          ws.send(respondToLogin(request, data, ip));
         })
         .catch(function(err) {
           console.log("Could not fetch data. Reason: " + err);
@@ -33,11 +34,33 @@ wss.on('connection', function connection(ws, req) {
     }
     else if (request.type === "datarequest") {
       if(verifyRequest(request)) {
-        ws.send(fetchData(request.datatype));
+        ws.send(fetchData(request.datatype, request.userid, request.all));
+      }
+    }
+    else if(request.type === "assigneventrequest") {
+      if(verifyRequest(request)) {
+        if (request.eventtype === "task") {
+          ws.send(assignTaskToUser(request.eventid, request.userid));
+        }
+      }
+    }
+    else if(request.type === "resolvetaskrequest") {
+      if(verifyRequest(request)) {
+        ws.send(resolveTask(request.taskid, request.userid));
       }
     }
 
   });
+
+  ws.on('close', function close() {
+    for (var i = 0; i < sessions.length; i++) {
+      if (sessions[i].ip == ip) {
+        console.log("user " + sessions[i].userid + " logged out (disconnect)");
+        sessions.splice(i, 1);
+      }
+    }
+  });
+
 });
 
 function verifyRequest(request) {
@@ -50,30 +73,67 @@ function verifyRequest(request) {
   return verified;
 }
 
-function fetchData(datatype) {
+function fetchData(datatype, userid, all) {
   if (datatype === "task") {
-    return(JSON.stringify(tasks));
+    if (all) {
+      return(JSON.stringify(tasks));
+    } else {
+      var newtasks = [];
+      for (var i = 0; i < tasks.length; i++) {
+        if (tasks[i].userid == userid) {
+          newtasks.push(tasks[i]);
+        }
+      }
+      return(JSON.stringify(newtasks));
+    }
   }
 }
 
-function respondToLogin(request, data, ip) {
-
-  if (verifyPassword(request.username, request.password, data)) {
-    var userid = 0;
-    for (var i  = 0; i < data.username.length; i++) {
-      if (data.username[i] === request.username) {
-        userid = data.userid[i];
+function assignTaskToUser(taskid, userid) {
+  for (var i = 0; i < tasks.length; i++) {
+    if (tasks[i].taskid == taskid) {
+      if (tasks[i].userid == userid) {
+        tasks[i].userid = -1;
+        tasks[i].open = true;
+        return JSON.stringify(new AssignEventResponse(true, taskid, true));
+      }
+      else {
+        tasks[i].userid = userid;
+        tasks[i].open = false;
+        return JSON.stringify(new AssignEventResponse(true, taskid, false));
       }
     }
+  }
+  return JSON.stringify(new AssignEventResponse(false, taskid, false));
+}
+
+function isLoggedIn(userid) {
+  for (var i  = 0; i < sessions.length; i++) {
+    if (sessions[i].userid === userid) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function respondToLogin(request, data, ip) {
+  var userid = 0;
+  for (var i  = 0; i < data.username.length; i++) {
+    if (data.username[i] === request.username) {
+      userid = data.userid[i];
+    }
+  }
+  if (verifyPassword(request.username, request.password, data) && !isLoggedIn(userid)) {
     var sessid = generateSessionId();
     var sesssecret = longstr.generate({ length: 15, numbers: true, strict: true });
     var session = new Session(sessid, userid, sesssecret, ip);
     sessions.push(session);
+    console.log("user " + userid + " logged in.");
     var response = new LoginResponse(true, userid, session.secret);
     return JSON.stringify(response);
   }
   else {
-    var response = new LoginResponse(false, 0, "");
+    var response = new LoginResponse(false, -1, "");
     return JSON.stringify(response);
   }
 
@@ -88,7 +148,6 @@ function verifyPassword(username, password, userdata) {
     }
   }
   if (hasher.verify(password, hashpass)) {
-    console.log("User " + username + " logged in.");
     return true;
   } else {
     return false;

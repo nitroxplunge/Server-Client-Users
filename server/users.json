@@ -1,1 +1,1 @@
-{"userid":[67456],"username":["test"],"hashedpassword":["sha1$48b1b8d5$1$8787c4e1f3ef02a9610d9c6ad2f804279b54a939"]}
+{"userid":[67456,0],"username":["test","admin"],"hashedpassword":["sha1$48b1b8d5$1$8787c4e1f3ef02a9610d9c6ad2f804279b54a939","sha1$2b6efaeb$1$bf61d8abf140811e212ea76dfdd947ea470ee350"]}
