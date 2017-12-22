@@ -1,0 +1,235 @@
+html {
+    overflow: hidden;
+    height: 100%;
+}
+
+body {
+    height: 100%;
+    overflow: auto;
+}
+
+body {
+    background-color: #9b46fc;
+}
+
+.contents {
+    padding-top: 60px;
+    margin-top: 58px;
+    background-color: #fff;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    overflow: scroll;
+}
+
+.nav-wrapper {
+    font-family: 'Raleway', sans-serif;
+    width: 100%;
+    background-color: #9b46fc;
+    padding: 0px;
+    position: fixed;
+    left: 0;
+    top: 0;
+    height: 59px;
+    z-index: 10;
+    overflow: hidden;
+}
+
+.nav-wrapper p {
+    margin: 0;
+    position: fixed;
+    display: block;
+    color: white;
+    top: 15px;
+    left: 20px;
+    font-size: 26px;
+}
+
+.nav-wrapper ul {
+    list-style-type: none;
+    margin: 0;
+    padding: 0px;
+    overflow: hidden;
+    background-color: #9b46fc;
+    position: fixed;
+    top: 0;
+    right: 0px;
+}
+
+.nav-wrapper li {
+    float: left;
+}
+
+.nav-wrapper li a {
+    display: block;
+    color: white;
+    text-align: center;
+    padding: 20px 25px;
+    text-decoration: none;
+    -webkit-transition: 0.2s; /* For Safari 3.1 to 6.0 */
+    transition: 0.2s;
+}
+
+.nav-wrapper li a:hover {
+    background-color: #8431e2;
+}
+
+.outlinedsection {
+    width: 85%;
+    position: relative;
+    margin: 0 auto;
+    border-style: solid;
+    border-radius: 10px;
+    margin-bottom: 40px;
+}
+\
+.outlinedsection p {
+    margin: 0;
+    padding: 20px;
+}
+
+.largetextsection {
+    width: 85%;
+    position: relative;
+    margin: 0 auto;
+    font-size: 30px;
+    margin-bottom: 40px;
+}
+
+.largetextsection p {
+    text-align: center;
+    margin: 0;
+    padding: 0;
+}
+
+.textsection {
+    width: 85%;
+    position: relative;
+    margin: 0 auto;
+    font-size: 20px;
+    margin-bottom: 40px;
+}
+
+.textsection p {
+    text-align: center;
+    margin: 0;
+    padding: 0;
+}
+
+.headerimgwrapper {
+    position: absolute;
+    top: 0;
+    left: 0;
+    padding: 0;
+    margin: 0;
+    width: 100%;
+    height: 200px;
+    overflow: hidden;
+}
+
+.headerimage {
+    position: absolute;
+    top: 0px;
+    margin-top: -17%;
+    width: 100%;
+    height: auto;
+}
+
+.headerimgbuffer {
+    width: 100%;
+    height: 200px;
+}
+
+.maindiv {
+    margin: 0 auto;
+    width: 80%;
+    box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.2), 0 6px 20px 0 rgba(0, 0, 0, 0.19);
+    text-align: center;
+    padding: 10px;
+}
+
+.normalbutton {
+    width: 100px;
+    height: 40px;
+    font-size: 20px;
+    margin-bottom: 20px;
+    background-color: #9b46fc;
+    color: white;
+}
+
+input {
+    font-size: 20px;
+}
+
+.codetask {
+    background-color: white;
+    margin: 0 auto;
+    width: 300px;
+    height: 40px;
+    border-left: solid;
+    border-radius: 8px;
+    border-color: blue;
+    border-width: 8px;
+    margin-bottom: 20px;
+    margin-top: -20px;
+}
+
+.codetask p {
+    text-align: left;
+    padding-left: 10px;
+    font-size: 30px;
+    padding-top: 3px;
+    font-family: 'Roboto', sans-serif;
+}
+
+.loading {
+    width: 330px;
+}
+
+.taskdiv {
+    width: calc(45%);
+    position: relative;
+    left: 0;
+    top: 0;
+    background-color: lightgray;
+}
+
+.fulltaskdiv {
+    width: calc(100%);
+    position: relative;
+    left: 0;
+    top: 0;
+    background-color: lightgray;
+}
+
+#errmsg {
+    color: red;
+    text-align: center;
+    margin-top: -20px;
+}
+
+.addtaskbutton {
+    position: relative;
+    height: 34px;
+    width: 34px;
+    top: -65px;
+    right: -126px;
+    background-image: url("images/add.png");
+    background-repeat: no-repeat;
+    background-size: 34px 34px;
+    border: none;
+}
+
+.remtaskbutton {
+    position: relative;
+    height: 34px;
+    width: 34px;
+    top: -65px;
+    right: -126px;
+    background-image: url("images/delete.png");
+    background-repeat: no-repeat;
+    background-size: 34px 34px;
+    border: none;
+}
