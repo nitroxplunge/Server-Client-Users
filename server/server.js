@@ -8,17 +8,19 @@ var Session = require("./classes/session.js");
 var User = require("./classes/user.js");
 var Task = require("./classes/task.js");
 var AssignEventResponse = require("./classes/assigneventresponse.js");
+var ResolveTaskResponse = require("./classes/resolvetaskresponse.js");
+var UnresolveTaskResponse = require("./classes/unresolvetaskresponse.js");
 
 var userFile = 'users.json';
+var taskFile = 'tasks.json';
 
 const wss = new WebSocket.Server({ port: 7308 });
 
 var sessions = [];
-var tasks = [new Task("code", 0, "Finish Website", -1, true, false), new Task("mechanical", 1, "Build Drivetrain", -1, true, false), new Task("cad", 2, "Design Shooter", -1, true, false)];
 
 wss.on('connection', function connection(ws, req) {
 
-  var ip = req.connection.remoteAddress;
+  var ip = req.connection.remoteAddress + ":" + req.connection.remotePort;
   ws.on('message', function incoming(message) {
 
     var request = JSON.parse(message);
@@ -34,19 +36,47 @@ wss.on('connection', function connection(ws, req) {
     }
     else if (request.type === "datarequest") {
       if(verifyRequest(request)) {
-        ws.send(fetchData(request.datatype, request.userid, request.all));
+        if (request.datatype === "task") {
+          getTaskData()
+            .then(function(data) {
+              ws.send(fetchData(request.datatype, request.userid, request.all, request.includefinished, data));
+            })
+            .catch(function(err) {
+              console.log("Could not fetch data. Reason: " + err);
+            });
+        }
       }
     }
     else if(request.type === "assigneventrequest") {
       if(verifyRequest(request)) {
         if (request.eventtype === "task") {
-          ws.send(assignTaskToUser(request.eventid, request.userid));
+          getTaskData()
+            .then(function(data) {
+              ws.send(assignTaskToUser(request.eventid, request.userid, data));
+            })
+            .catch(function(err) {
+              console.log("Could not fetch data. Reason: " + err);
+            });
         }
       }
     }
     else if(request.type === "resolvetaskrequest") {
       if(verifyRequest(request)) {
-        ws.send(resolveTask(request.taskid, request.userid));
+        getTaskData()
+          .then(function(data) {
+            ws.send(resolveTask(request.taskid, request.userid, data));
+          })
+          .catch(function(err) {
+            console.log("Could not fetch data. Reason: " + err);
+          });
+      }
+    }
+    else if(request.type === "unresolvetaskrequest") {
+      if(verifyRequest(request)) {
+        getTaskData()
+          .then(function(data) {
+            ws.send(unresolveTask(request.taskid, request.userid, data));
+          })
       }
     }
 
@@ -54,7 +84,7 @@ wss.on('connection', function connection(ws, req) {
 
   ws.on('close', function close() {
     for (var i = 0; i < sessions.length; i++) {
-      if (sessions[i].ip == ip) {
+      if (sessions[i].ip === ip) {
         console.log("user " + sessions[i].userid + " logged out (disconnect)");
         sessions.splice(i, 1);
       }
@@ -73,38 +103,81 @@ function verifyRequest(request) {
   return verified;
 }
 
-function fetchData(datatype, userid, all) {
+function fetchData(datatype, userid, all, includefinished, tasks) {
   if (datatype === "task") {
+    var newtasks = [];
     if (all) {
-      return(JSON.stringify(tasks));
+      if (includefinished) {
+        for (var i = 0; i < tasks.length; i++) {
+          if (tasks[i].resolved == true) {
+            newtasks.push(tasks[i]);
+          }
+        }
+      } else {
+        for (var i = 0; i < tasks.length; i++) {
+          if (tasks[i].resolved == false) {
+            newtasks.push(tasks[i]);
+          }
+        }
+      }
     } else {
       var newtasks = [];
       for (var i = 0; i < tasks.length; i++) {
-        if (tasks[i].userid == userid) {
+        if (tasks[i].userid == userid && tasks[i].resolved == false) {
           newtasks.push(tasks[i]);
         }
       }
-      return(JSON.stringify(newtasks));
     }
+    return(JSON.stringify(newtasks));
   }
 }
 
-function assignTaskToUser(taskid, userid) {
+function assignTaskToUser(taskid, userid, tasks) {
   for (var i = 0; i < tasks.length; i++) {
     if (tasks[i].taskid == taskid) {
       if (tasks[i].userid == userid) {
         tasks[i].userid = -1;
         tasks[i].open = true;
+        var json = "{\"tasks\":"+ JSON.stringify(tasks) + "}";
+        fs.writeFile (taskFile, json, function(err) { if (err) throw err });
         return JSON.stringify(new AssignEventResponse(true, taskid, true));
       }
       else {
         tasks[i].userid = userid;
         tasks[i].open = false;
+        var json = "{\"tasks\":"+ JSON.stringify(tasks) + "}";
+        fs.writeFile (taskFile, json, function(err) { if (err) throw err });
         return JSON.stringify(new AssignEventResponse(true, taskid, false));
       }
     }
   }
   return JSON.stringify(new AssignEventResponse(false, taskid, false));
+}
+
+function resolveTask(taskid, userid, tasks) {
+  for (var i = 0; i < tasks.length; i++) {
+    if (tasks[i].taskid == taskid) {
+      tasks[i].resolved = true;
+      var json = "{\"tasks\":"+ JSON.stringify(tasks) + "}";
+      fs.writeFile (taskFile, json, function(err) { if (err) throw err });
+      return JSON.stringify(new ResolveTaskResponse(true, taskid));
+    }
+  }
+  return JSON.stringify(new ResolveTaskResponse(false, taskid));
+}
+
+function unresolveTask(taskid, userid, tasks) {
+  for (var i = 0; i < tasks.length; i++) {
+    if (tasks[i].taskid == taskid) {
+      tasks[i].resolved = false;
+      tasks[i].userid = -1;
+      tasks[i].open = true;
+      var json = "{\"tasks\":"+ JSON.stringify(tasks) + "}";
+      fs.writeFile (taskFile, json, function(err) { if (err) throw err });
+      return JSON.stringify(new UnresolveTaskResponse(true, taskid));
+    }
+  }
+  return JSON.stringify(new UnresolveTaskResponse(false, taskid));
 }
 
 function isLoggedIn(userid) {
@@ -187,11 +260,38 @@ function getUserData() {
   return new Promise(function(resolve, reject) {
     fs.readFile(userFile, 'utf8', function (err, data) {
       if (err) {
-        throw err;
         reject(err);
+        throw err;
       }
       resolve(JSON.parse(data));
     });
+  });
+}
+
+function getTaskData() {
+  return new Promise(function(resolve, reject) {
+    fs.readFile(taskFile, 'utf8', function (err, data) {
+      if (err) {
+        reject(err);
+        throw err;
+      }
+      resolve(JSON.parse(data).tasks);
+    });
+  });
+}
+
+function addTask(task) {
+  new Task("code", 0, "Finish Website", -1, true, false)
+  fs.readFile(taskFile, 'utf8', function (err, data) {
+    if (err) throw err;
+    
+    var eventjson = JSON.parse(data);
+    console.log(eventjson.tasks);
+    eventjson.tasks.push(task);
+    eventjson = JSON.stringify(eventjson);
+    
+    fs.writeFile (taskFile, eventjson, function(err) { if (err) throw err });
+    console.log("added event \"" + task.contents + "\"")
   });
 }
 
