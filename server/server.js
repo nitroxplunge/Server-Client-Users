@@ -10,6 +10,8 @@ var Task = require("./classes/task.js");
 var AssignEventResponse = require("./classes/assigneventresponse.js");
 var ResolveTaskResponse = require("./classes/resolvetaskresponse.js");
 var UnresolveTaskResponse = require("./classes/unresolvetaskresponse.js");
+var AddUserResponse = require("./classes/adduserresponse.js");
+var AddTaskResponse = require("./classes/addtaskresponse.js");
 
 var userFile = 'users.json';
 var taskFile = 'tasks.json';
@@ -18,80 +20,110 @@ const wss = new WebSocket.Server({ port: 7308 });
 
 var sessions = [];
 
-wss.on('connection', function connection(ws, req) {
+  wss.on('connection', function connection(ws, req) {
 
-  var ip = req.connection.remoteAddress + ":" + req.connection.remotePort;
-  ws.on('message', function incoming(message) {
+    var ip = req.connection.remoteAddress + ":" + req.connection.remotePort;
+    ws.on('message', function incoming(message) {
 
-    var request = JSON.parse(message);
+      var request = JSON.parse(message);
 
-    if (request.type === "loginrequest") {
-      getUserData()
-        .then(function(data) {
-          ws.send(respondToLogin(request, data, ip));
-        })
-        .catch(function(err) {
-          console.log("Could not fetch data. Reason: " + err);
-        });
-    }
-    else if (request.type === "datarequest") {
-      if(verifyRequest(request)) {
-        if (request.datatype === "task") {
-          getTaskData()
-            .then(function(data) {
-              ws.send(fetchData(request.datatype, request.userid, request.all, request.includefinished, data));
-            })
-            .catch(function(err) {
-              console.log("Could not fetch data. Reason: " + err);
-            });
-        }
-      }
-    }
-    else if(request.type === "assigneventrequest") {
-      if(verifyRequest(request)) {
-        if (request.eventtype === "task") {
-          getTaskData()
-            .then(function(data) {
-              ws.send(assignTaskToUser(request.eventid, request.userid, data));
-            })
-            .catch(function(err) {
-              console.log("Could not fetch data. Reason: " + err);
-            });
-        }
-      }
-    }
-    else if(request.type === "resolvetaskrequest") {
-      if(verifyRequest(request)) {
-        getTaskData()
+      if (request.type === "loginrequest") {
+        getUserData()
           .then(function(data) {
-            ws.send(resolveTask(request.taskid, request.userid, data));
+            ws.send(respondToLogin(request, data, ip));
           })
           .catch(function(err) {
             console.log("Could not fetch data. Reason: " + err);
           });
       }
-    }
-    else if(request.type === "unresolvetaskrequest") {
-      if(verifyRequest(request)) {
+      else if (request.type === "datarequest") {
+        if(verifyRequest(request)) {
+          if (request.datatype === "task") {
+            getTaskData()
+              .then(function(data) {
+                ws.send(fetchData(request.datatype, request.userid, request.all, request.includefinished, data));
+              })
+              .catch(function(err) {
+                console.log("Could not fetch data. Reason: " + err);
+              });
+          }
+        }
+      }
+      else if(request.type === "assigneventrequest") {
+        if(verifyRequest(request)) {
+          if (request.eventtype === "task") {
+            assignTaskToUser(request.eventid, request.userid)
+              .then(function(data) {
+                ws.send(data);
+              })
+              .catch(function(err) {
+                console.log("Could not fetch data. Reason: " + err);
+              });
+          }
+        }
+      }
+      else if(request.type === "resolvetaskrequest") {
+        if(verifyRequest(request)) {
+          getTaskData()
+            .then(function(data) {
+              ws.send(resolveTask(request.taskid, request.userid, data));
+            })
+            .catch(function(err) {
+              console.log("Could not fetch data. Reason: " + err);
+            });
+        }
+      }
+      else if(request.type === "unresolvetaskrequest") {
+        if(verifyRequest(request)) {
+          getTaskData()
+            .then(function(data) {
+              ws.send(unresolveTask(request.taskid, request.userid, data));
+            })
+            .catch(function(err) {
+              console.log("Could not fetch data. Reason: " + err);
+            });
+        }
+      }
+      else if (request.type === "adduserrequest") {
+        getUserData()
+          .then(function(data) {
+            if(verifyRequest(request) && request.userid == 0 && usernameAvailable(request.username, data.username)) {
+              createUser(request.username, request.password);
+              ws.send(JSON.stringify(new AddUserResponse(request.username, request.password, true)));
+            } else {
+              ws.send(JSON.stringify(new AddUserResponse(request.username, request.password, false)));
+            }
+          })
+          .catch(function(err) {
+            console.log("Could not fetch data. Reason: " + err);
+          });
+      }
+      else if (request.type === "addtaskrequest") {
         getTaskData()
           .then(function(data) {
-            ws.send(unresolveTask(request.taskid, request.userid, data));
+            addTask(new Task(request.tasktype, data.length, request.contents, -1, "", true, false));
+            ws.send(JSON.stringify(new AddTaskResponse(data.length, true)));
           })
+          .catch(function(err) {
+            console.log("Could not fetch data. Reason: " + err);
+          });
       }
-    }
+
+    });
+
+    ws.on('close', function close() {
+      for (var i = 0; i < sessions.length; i++) {
+        if (sessions[i].ip === ip) {
+          console.log("user " + sessions[i].userid + " logged out (disconnect)");
+          sessions.splice(i, 1);
+        }
+      }
+    });
+
+    ws.on('error', () => console.log('error (probably a disconnect, new ws sucks)'));
 
   });
 
-  ws.on('close', function close() {
-    for (var i = 0; i < sessions.length; i++) {
-      if (sessions[i].ip === ip) {
-        console.log("user " + sessions[i].userid + " logged out (disconnect)");
-        sessions.splice(i, 1);
-      }
-    }
-  });
-
-});
 
 function verifyRequest(request) {
   var verified = false;
@@ -132,26 +164,36 @@ function fetchData(datatype, userid, all, includefinished, tasks) {
   }
 }
 
-function assignTaskToUser(taskid, userid, tasks) {
-  for (var i = 0; i < tasks.length; i++) {
-    if (tasks[i].taskid == taskid) {
-      if (tasks[i].userid == userid) {
-        tasks[i].userid = -1;
-        tasks[i].open = true;
-        var json = "{\"tasks\":"+ JSON.stringify(tasks) + "}";
-        fs.writeFile (taskFile, json, function(err) { if (err) throw err });
-        return JSON.stringify(new AssignEventResponse(true, taskid, true));
+async function assignTaskToUser(taskid, userid) {
+  try {
+    var tasks = await getTaskData();
+    var userdata = await getUserData();
+    return new Promise(function(resolve, reject) {
+      for (var i = 0; i < tasks.length; i++) {
+        if (tasks[i].taskid == taskid) {
+          if (tasks[i].userid == userid) {
+            tasks[i].userid = -1;
+            tasks[i].username = getUsernameFromID(userid, userdata);
+            tasks[i].open = true;
+            var json = "{\"tasks\":"+ JSON.stringify(tasks) + "}";
+            fs.writeFile (taskFile, json, function(err) { if (err) throw err });
+            resolve(JSON.stringify(new AssignEventResponse(true, taskid, true)));
+          }
+          else {
+            tasks[i].userid = userid;
+            tasks[i].open = false;
+            var json = "{\"tasks\":"+ JSON.stringify(tasks) + "}";
+            fs.writeFile (taskFile, json, function(err) { if (err) throw err });
+            resolve(JSON.stringify(new AssignEventResponse(true, taskid, false)));
+          }
+        }
       }
-      else {
-        tasks[i].userid = userid;
-        tasks[i].open = false;
-        var json = "{\"tasks\":"+ JSON.stringify(tasks) + "}";
-        fs.writeFile (taskFile, json, function(err) { if (err) throw err });
-        return JSON.stringify(new AssignEventResponse(true, taskid, false));
-      }
-    }
+      resolve(JSON.stringify(new AssignEventResponse(false, taskid, false)));
+    });
   }
-  return JSON.stringify(new AssignEventResponse(false, taskid, false));
+  catch(err) {
+    console.log(err);
+  }
 }
 
 function resolveTask(taskid, userid, tasks) {
@@ -248,6 +290,7 @@ function generateUserId(useridarr) {
 }
 
 function usernameAvailable(username, usernamearr) {
+  if (username === "") return false;
   for (var i  = 0; i < usernamearr.length; i++) {
     if (usernamearr[i] === username) {
       return false;
@@ -281,12 +324,10 @@ function getTaskData() {
 }
 
 function addTask(task) {
-  new Task("code", 0, "Finish Website", -1, true, false)
   fs.readFile(taskFile, 'utf8', function (err, data) {
     if (err) throw err;
     
     var eventjson = JSON.parse(data);
-    console.log(eventjson.tasks);
     eventjson.tasks.push(task);
     eventjson = JSON.stringify(eventjson);
     
@@ -324,4 +365,13 @@ function createUser(username, password) {
       console.log("Could not fetch data. Reason: " + err);
     });
 
+}
+
+function getUsernameFromID(userid, userdata) {
+  for (var i = 0; i < userdata.userid.length; i++) {
+    if (userdata.userid[i] == userid) {
+      return userdata.username[i];
+    }
+  }
+  return "";
 }

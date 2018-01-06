@@ -1,1 +1,1 @@
-{"tasks":[{"type":"task","tasktype":"code","taskid":0,"contents":"Finish Website","userid":-1,"open":true,"resolved":false},{"type":"task","tasktype":"mechanical","taskid":1,"contents":"Build Drivetrain","userid":-1,"open":true,"resolved":false},{"type":"task","tasktype":"cad","taskid":2,"contents":"Design Shooter","userid":-1,"open":true,"resolved":false}]}
+{"tasks":[{"type":"task","tasktype":"general","taskid":0,"contents":"Finish Website","userid":0,"open":false,"resolved":false,"username":"iwilcove"}]}
